@@ -6,6 +6,9 @@ from .models import Reserva
 from .serializers import ReservaSerializer
 import random
 from datetime import datetime, timedelta
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth.models import User
 
 
 def generar_codigo():
@@ -71,3 +74,31 @@ class ReservaViewSet(viewsets.ModelViewSet):
         return Response({
             "mensaje": "Reserva cancelada correctamente. El horario quedó libre."
         })
+        
+# 🔐 VISTA SOLO PARA EL DUEÑO (ADMIN)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def listar_reservas_admin(request):
+    reservas = Reserva.objects.all().order_by('-created_at')
+    serializer = ReservaSerializer(reservas, many=True)
+    return Response(serializer.data)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def crear_admin(request):
+    """
+    Crea un nuevo usuario admin.
+    Solo accesible si el request viene de un usuario autenticado.
+    """
+    username = request.data.get("username")
+    password = request.data.get("password")
+
+    if not username or not password:
+        return Response({"error": "Faltan datos"}, status=400)
+
+    if User.objects.filter(username=username).exists():
+        return Response({"error": "El usuario ya existe"}, status=400)
+
+    User.objects.create_superuser(username=username, password=password)
+    return Response({"mensaje": "Usuario admin creado correctamente"})        
